@@ -6,7 +6,7 @@ const path = require('path');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-const stripe = require('stripe')('***REMOVED***');
+const stripe = require('stripe')('process.env.STRIPE_SECRET_KEY');
 
 app.use(cors());
 app.use(express.json());
