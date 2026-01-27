@@ -1,5 +1,4 @@
-throw new Error("QUESTO è IL SERVER GIUSTO");
-// server.js - Pixel Kingdom Backend
+// server.js - we-were-here Backend
 // Stack: Node.js + Express + better-sqlite3 + Stripe
 
 const express = require('express');
@@ -16,7 +15,7 @@ app.use(express.json());
 app.use(express.static('public'));
 
 // Database
-const db = new Database('./pixelkingdom.db');
+const db = new Database('./wewerehere.db');
 
 // Init DB
 db.prepare(`
