@@ -1,4 +1,4 @@
-// server.js - we-were-here Backend
+// server.js - We Were Here Backend
 // Stack: Node.js + Express + better-sqlite3 + Stripe
 
 const express = require('express');
@@ -15,9 +15,9 @@ app.use(express.json());
 app.use(express.static('public'));
 
 // Database
-const db = new Database('./wewerehere.db');
+const db = new Database('./we-were-here.db');
 
-// Init DB
+// Initialize table if not exists
 db.prepare(`
 CREATE TABLE IF NOT EXISTS cells (
 cellId INTEGER PRIMARY KEY,
@@ -29,14 +29,15 @@ created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 )
 `).run();
 
-// Acquisto cella (pagamento simulato, integra Stripe se vuoi)
+// Buy a cell (payment simulation; Stripe integration possible)
 app.post('/api/buyCell', async (req, res) => {
 const { cellId, text, image, link, color, token } = req.body;
 
+// Check if cell is already occupied
 const row = db.prepare('SELECT * FROM cells WHERE cellId = ?').get(cellId);
-if (row) return res.json({ success: false, message: 'Cella già occupata' });
+if (row) return res.json({ success: false, message: 'Cell already occupied' });
 
-// Qui puoi integrare Stripe PaymentIntent se vuoi
+// Optional: integrate Stripe payment here
 // const payment = await stripe.paymentIntents.create({ ... });
 
 db.prepare(
@@ -46,13 +47,13 @@ db.prepare(
 res.json({ success: true });
 });
 
-// Carica tutte le celle
+// Load all cells
 app.get('/api/loadCells', (req, res) => {
 const rows = db.prepare('SELECT * FROM cells').all();
 res.json(rows);
 });
 
-// Avvio server
+// Start server
 app.listen(PORT, () => {
-console.log(`Pixel Kingdom backend avviato su http://localhost:${PORT}`);
+console.log(`We Were Here backend running at http://localhost:${PORT}`);
 });
