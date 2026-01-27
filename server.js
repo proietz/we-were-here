@@ -1,3 +1,4 @@
+throw new Error("QUESTO è IL SERVER GIUSTO");
 // server.js - Pixel Kingdom Backend
 // Stack: Node.js + Express + better-sqlite3 + Stripe
 
