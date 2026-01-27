@@ -1,59 +1,85 @@
-// server.js - We Were Here Backend
-// Stack: Node.js + Express + better-sqlite3 + Stripe
-
-const express = require('express');
-const cors = require('cors');
-const Database = require('better-sqlite3');
-const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+const express = require("express");
+const fs = require("fs");
+const path = require("path");
+const cors = require("cors");
+const multer = require("multer");
 
 const app = express();
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
 
 // Middleware
 app.use(cors());
 app.use(express.json());
-app.use(express.static('public'));
+app.use(express.static("public"));
 
-// Database
-const db = new Database('./we-were-here.db');
+// ---------- DATA SETUP ----------
+const dataDir = path.join(__dirname, "data");
+const dataFile = path.join(dataDir, "messages.json");
 
-// Initialize table if not exists
-db.prepare(`
-CREATE TABLE IF NOT EXISTS cells (
-cellId INTEGER PRIMARY KEY,
-text TEXT,
-image TEXT,
-link TEXT,
-color TEXT,
-created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-)
-`).run();
+// Create data folder/file if missing
+if (!fs.existsSync(dataDir)) {
+fs.mkdirSync(dataDir);
+}
+if (!fs.existsSync(dataFile)) {
+fs.writeFileSync(dataFile, JSON.stringify([]));
+}
 
-// Buy a cell (payment simulation; Stripe integration possible)
-app.post('/api/buyCell', async (req, res) => {
-const { cellId, text, image, link, color, token } = req.body;
+// Helpers
+function readMessages() {
+const raw = fs.readFileSync(dataFile, "utf-8");
+return JSON.parse(raw);
+}
+function saveMessages(messages) {
+fs.writeFileSync(dataFile, JSON.stringify(messages, null, 2));
+}
 
-// Check if cell is already occupied
-const row = db.prepare('SELECT * FROM cells WHERE cellId = ?').get(cellId);
-if (row) return res.json({ success: false, message: 'Cell already occupied' });
+// ---------- IMAGE UPLOAD ----------
+const storage = multer.diskStorage({
+destination: function (req, file, cb) {
+const uploadDir = path.join(__dirname, "public", "uploads");
+if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir);
+cb(null, uploadDir);
+},
+filename: function (req, file, cb) {
+const uniqueName = Date.now() + "-" + file.originalname;
+cb(null, uniqueName);
+},
+});
+const upload = multer({ storage });
 
-// Optional: integrate Stripe payment here
-// const payment = await stripe.paymentIntents.create({ ... });
+// ---------- API ----------
 
-db.prepare(
-'INSERT INTO cells (cellId, text, image, link, color) VALUES (?, ?, ?, ?, ?)'
-).run(cellId, text, image, link, color);
+// Add message
+app.post("/api/add", upload.single("image"), (req, res) => {
+const { name, text } = req.body;
+
+if (!name || !text) {
+return res.json({ success: false, message: "Missing fields" });
+}
+
+const messages = readMessages();
+
+const newMessage = {
+id: Date.now(),
+name,
+text,
+image: req.file ? `/uploads/${req.file.filename}` : null,
+createdAt: new Date().toISOString(),
+};
+
+messages.push(newMessage);
+saveMessages(messages);
 
 res.json({ success: true });
 });
 
-// Load all cells
-app.get('/api/loadCells', (req, res) => {
-const rows = db.prepare('SELECT * FROM cells').all();
-res.json(rows);
+// Get all messages
+app.get("/api/messages", (req, res) => {
+const messages = readMessages();
+res.json(messages);
 });
 
-// Start server
+// ---------- START ----------
 app.listen(PORT, () => {
-console.log(`We Were Here backend running at http://localhost:${PORT}`);
+console.log("We Were Here running on port " + PORT);
 });
