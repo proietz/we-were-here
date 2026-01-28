@@ -1,8 +1,7 @@
-const express = require("express");
-const fs = require("fs");
-const path = require("path");
-const cors = require("cors");
-const multer = require("multer");
+const express = require('express');
+const cors = require('cors');
+const path = require('path');
+const Database = require('better-sqlite3');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -10,76 +9,55 @@ const PORT = process.env.PORT || 3000;
 // Middleware
 app.use(cors());
 app.use(express.json());
-app.use(express.static("public"));
+app.use(express.static('public'));
 
-// ---------- DATA SETUP ----------
-const dataDir = path.join(__dirname, "data");
-const dataFile = path.join(dataDir, "messages.json");
+// Database (file locale)
+const dbPath = path.join(__dirname, 'wewerehere.db');
+const db = new Database(dbPath);
 
-// Create data folder/file if missing
-if (!fs.existsSync(dataDir)) {
-fs.mkdirSync(dataDir);
-}
-if (!fs.existsSync(dataFile)) {
-fs.writeFileSync(dataFile, JSON.stringify([]));
-}
+// Init table
+db.prepare(`
+CREATE TABLE IF NOT EXISTS cells (
+cellId INTEGER PRIMARY KEY,
+text TEXT,
+image TEXT,
+link TEXT,
+color TEXT,
+created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+)
+`).run();
 
-// Helpers
-function readMessages() {
-const raw = fs.readFileSync(dataFile, "utf-8");
-return JSON.parse(raw);
-}
-function saveMessages(messages) {
-fs.writeFileSync(dataFile, JSON.stringify(messages, null, 2));
-}
+// Create cell
+app.post('/api/buyCell', (req, res) => {
+const { cellId, text, image, link, color } = req.body;
 
-// ---------- IMAGE UPLOAD ----------
-const storage = multer.diskStorage({
-destination: function (req, file, cb) {
-const uploadDir = path.join(__dirname, "public", "uploads");
-if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir);
-cb(null, uploadDir);
-},
-filename: function (req, file, cb) {
-const uniqueName = Date.now() + "-" + file.originalname;
-cb(null, uniqueName);
-},
-});
-const upload = multer({ storage });
-
-// ---------- API ----------
-
-// Add message
-app.post("/api/add", upload.single("image"), (req, res) => {
-const { name, text } = req.body;
-
-if (!name || !text) {
-return res.json({ success: false, message: "Missing fields" });
+if (!cellId) {
+return res.status(400).json({ success: false, message: 'Missing cellId' });
 }
 
-const messages = readMessages();
+const existing = db
+.prepare('SELECT cellId FROM cells WHERE cellId = ?')
+.get(cellId);
 
-const newMessage = {
-id: Date.now(),
-name,
-text,
-image: req.file ? `/uploads/${req.file.filename}` : null,
-createdAt: new Date().toISOString(),
-};
+if (existing) {
+return res.json({ success: false, message: 'Cell already occupied' });
+}
 
-messages.push(newMessage);
-saveMessages(messages);
+db.prepare(`
+INSERT INTO cells (cellId, text, image, link, color)
+VALUES (?, ?, ?, ?, ?)
+`).run(cellId, text, image, link, color);
 
 res.json({ success: true });
 });
 
-// Get all messages
-app.get("/api/messages", (req, res) => {
-const messages = readMessages();
-res.json(messages);
+// Load all cells
+app.get('/api/loadCells', (req, res) => {
+const cells = db.prepare('SELECT * FROM cells').all();
+res.json(cells);
 });
 
-// ---------- START ----------
+// Start server
 app.listen(PORT, () => {
-console.log("We Were Here running on port " + PORT);
+console.log(`Server running on port ${PORT}`);
 });
