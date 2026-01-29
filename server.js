@@ -11,8 +11,8 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static('public'));
 
-// Database (file locale)
-const dbPath = path.join(__dirname, 'wewerehere.db');
+// Database (volume persistente Fly)
+const dbPath = path.join(__dirname, 'data', 'wewerehere.db');
 const db = new Database(dbPath);
 
 // Init table
